@@ -96,7 +96,7 @@ fun PollSwassData() =
             "https://www.swas.polito.it/dotnet/orari_lezione_pub/RicercaAuleLiberePerFasceOrarie.aspx"
         try {
             val doc = Jsoup.connect(website_url).get()
-
+    //
             CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_7"), TimeStamps)
             CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_6"), TimeStamps)
             CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_5"), TimeStamps)
