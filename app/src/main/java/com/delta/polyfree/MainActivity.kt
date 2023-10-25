@@ -7,8 +7,12 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -30,127 +34,160 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.delta.polyfree.ui.theme.PolyFreeTheme
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.runBlocking
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
-import java.io.Console
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        PollSwassData();
+        minimumViableTimeStamp();
         setContent {
             PolyFreeTheme {
-
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    TimeSelector();
+                    TimeSelector()
                 }
             }
         }
     }
-}
 
-val OpenSansFamily = FontFamily(
-    Font(R.font.opensans_bold,FontWeight.Bold),
-    Font(R.font.opensans_semibold,FontWeight.SemiBold),
-    Font(R.font.opensans_light,FontWeight.Light),
-    Font(R.font.opensans_regular,FontWeight.Normal)
-)
+    override fun onPause() {
+        super.onPause()
+        // PollSwassData();
+    }
 
-val TimeStrings : Array<String> = arrayOf("8:30", "10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00");
-data class ClassRoomData(var id: String="", val time: String="");
-data class ScrapingResult(val data: MutableList<ClassRoomData> = mutableListOf(), var count:Int = 0)
-
-fun PollSwassData() {
-    val website_url = "https://www.swas.polito.it/dotnet/orari_lezione_pub/RicercaAuleLiberePerFasceOrarie.aspx"
-
-    var coroutineScope = CoroutineScope(newSingleThreadContext("HTMLFetchThread"));
-    coroutineScope.launch {
-        try {
-            val doc = Jsoup.connect(website_url).get();
-            var hour0: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_0");
-            val hour1: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_1");
-            val hour2: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_2");
-            val hour3: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_3");
-            val hour4: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_4");
-            val hour5: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_5");
-            val hour6: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_6");
-            val hour7: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_7");
-
-            var sector0: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_0");
-            val sector1: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_1");
-            val sector2: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_2");
-            val sector3: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_3");
-            val sector4: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_4");
-            val sector5: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_5");
-            val sector6: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_6");
-            val sector7: Elements = doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_7");
-
-            println(hour0.text());
-            println(hour1.text());
-            println(hour2.text());
-            println(hour3.text());
-            println(hour4.text());
-            println(hour5.text());
-            println(hour6.text());
-            println(hour7.text());
-            println();
-            println(sector0.text());
-            println(sector1.text());
-            println(sector2.text());
-            println(sector3.text());
-            println(sector4.text());
-            println(sector5.text());
-            println(sector6.text());
-            println(sector7.text());
-
-        }catch (e: Exception){
-            println("Didn't work");
-            println(e.cause);
-            println(e.message);
-        }
+    override fun onStop() {
+        super.onStop()
+        // PollSwassData();
     }
 }
 
+val OpenSansFamily =
+    FontFamily(
+        Font(R.font.opensans_bold, FontWeight.Bold),
+        Font(R.font.opensans_semibold, FontWeight.SemiBold),
+        Font(R.font.opensans_light, FontWeight.Light),
+        Font(R.font.opensans_regular, FontWeight.Normal)
+    )
 
+val TimeStrings: Array<String> =
+    arrayOf("8:30", "10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00")
 
+val TimeStamps = ArrayList<String>()
+val ClassStamps = ArrayList<String>()
+
+fun CheckEmptyAndAdd(request: Elements, array: ArrayList<String>) {
+    if (request.isNullOrEmpty()) {
+        array.add("OOB")
+    } else {
+        array.add(request.text())
+    }
+}
+
+fun PollSwassData() =
+    runBlocking(newSingleThreadContext("NetworkThread")) {
+        val website_url =
+            "https://www.swas.polito.it/dotnet/orari_lezione_pub/RicercaAuleLiberePerFasceOrarie.aspx"
+        try {
+            val doc = Jsoup.connect(website_url).get()
+
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_7"), TimeStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_6"), TimeStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_5"), TimeStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_4"), TimeStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_3"), TimeStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_2"), TimeStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_1"), TimeStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_0"), TimeStamps)
+
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_7"), ClassStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_6"), ClassStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_5"), ClassStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_4"), ClassStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_3"), ClassStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_2"), ClassStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_1"), ClassStamps)
+            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_0"), ClassStamps)
+
+            ClassStamps.forEach { println(it) }
+        } catch (e: Exception) {
+            println("NETWORK FETCH FAILED")
+            println(e.cause)
+            println(e.message)
+        }
+    }
+
+fun minimumViableTimeStamp(): Int {
+    TimeStamps.withIndex().forEach{
+        if(it.value != "OOB"){
+            return it.index;
+        }
+    }
+    return 0;
+}
+
+@Composable
+fun ClassCard(name: String) {
+    Button(onClick = {}, shape = RoundedCornerShape(20.dp)) {
+        Text(
+            text = name,
+            fontFamily = OpenSansFamily,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 50.sp,
+            textAlign = TextAlign.Center
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimeSelector(modifier: Modifier = Modifier) {
-    Row ( horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Top){
-        var sliderPosition by remember { mutableStateOf(0f..7f) }
+    Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Top) {
+        var sliderPosition by remember { mutableStateOf(minimumViableTimeStamp().toFloat()..7f) }
         var min by remember { mutableStateOf(0) }
         var max by remember { mutableStateOf(7) }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-             val view = LocalView.current;
-             RangeSlider(
-                 value = sliderPosition,
-                 steps = 6,
-                 onValueChange = { values ->
-                     run {
-                         sliderPosition = values;
-                         min = (values.start+0.2).toInt() ;
-                         max = (values.endInclusive+0.2).toInt();
-                         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                     }
-                 },
-                 valueRange = 0f..7f,
-                 modifier = Modifier.padding(horizontal = 30.dp)
-             )
-                Text("%s - %s".format(TimeStrings[min], TimeStrings[max]), fontFamily = OpenSansFamily, fontWeight = FontWeight.SemiBold, fontSize = 40.sp, textAlign = TextAlign.Center);
-                Button(onClick = {PollSwassData()}) {
-                    Text("Poll Swass");
-                }
+            Spacer(modifier = Modifier.padding(vertical = 10.dp))
+            Text(
+                "%s - %s".format(TimeStrings[min], TimeStrings[max]),
+                fontFamily = OpenSansFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 40.sp,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.padding(vertical = 5.dp))
+            val view = LocalView.current
+            RangeSlider(
+                value = sliderPosition,
+                steps = 6,
+                onValueChange = { values ->
+                    run {
+                        sliderPosition = values;
+                        min = (sliderPosition.start + 0.2).toInt()
+                        max = (sliderPosition.endInclusive + 0.2).toInt()
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    }
+                },
+
+                valueRange = (minimumViableTimeStamp().toFloat()..7f),
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+            Spacer(modifier = Modifier.padding(vertical = 10.dp))
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(20) { ClassCard(name = "1B") }
+            }
         }
     }
 }
-
