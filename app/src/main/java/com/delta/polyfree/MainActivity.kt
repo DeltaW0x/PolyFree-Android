@@ -1,56 +1,61 @@
 package com.delta.polyfree
 
+import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
-import android.view.HapticFeedbackConstants
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.ImageLoader
+import coil.compose.rememberAsyncImagePainter
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import com.delta.polyfree.ui.theme.PolyFreeTheme
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.runBlocking
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 
+internal class IndexArray(val arrayIndex: Int, val elementIndex: Int)
+
 class MainActivity : ComponentActivity() {
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        PollSwassData();
-        minimumViableTimeStamp();
         setContent {
             PolyFreeTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
+                    StartScreen()
                     TimeSelector()
                 }
             }
@@ -59,12 +64,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
-        // PollSwassData();
+        pollSwasData()
     }
 
     override fun onStop() {
         super.onStop()
-        // PollSwassData();
+        pollSwasData()
     }
 }
 
@@ -77,45 +82,52 @@ val OpenSansFamily =
     )
 
 val TimeStrings: Array<String> =
-    arrayOf("8:30", "10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00")
+    arrayOf(
+        "8:30 - 10:00",
+        "10:00 - 11:30",
+        "11:30 - 13:00",
+        "13:00 - 14:30",
+        "14:30 - 16:00",
+        "16:00 - 17:30 ",
+        "17:30 - 19:00",
+        "19:00 - 20:30"
+    )
 
-val TimeStamps = ArrayList<String>()
-val ClassStamps = ArrayList<String>()
+val ClassStamps = ArrayList<ArrayList<String>>()
 
-fun CheckEmptyAndAdd(request: Elements, array: ArrayList<String>) {
+fun checkEmptyAndAdd(request: Elements, array: ArrayList<ArrayList<String>>) {
     if (request.isNullOrEmpty()) {
-        array.add("OOB")
+        var empty = ArrayList<String>()
+        empty.add("OOB")
+        array.add(empty)
     } else {
-        array.add(request.text())
+        var raw_data = request.text()
+        raw_data = raw_data.replace(",", " ")
+
+        var temp = ArrayList<String>()
+        var split = raw_data.split("\\s".toRegex())
+        split = split.filter { !it.isNullOrEmpty() }.toList()
+        split.forEach { temp.add(it) }
+
+        array.add(temp)
     }
 }
 
-fun PollSwassData() =
+fun pollSwasData() =
     runBlocking(newSingleThreadContext("NetworkThread")) {
         val website_url =
             "https://www.swas.polito.it/dotnet/orari_lezione_pub/RicercaAuleLiberePerFasceOrarie.aspx"
         try {
             val doc = Jsoup.connect(website_url).get()
-    //
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_7"), TimeStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_6"), TimeStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_5"), TimeStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_4"), TimeStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_3"), TimeStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_2"), TimeStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_1"), TimeStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_FasciaOraria_0"), TimeStamps)
 
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_7"), ClassStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_6"), ClassStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_5"), ClassStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_4"), ClassStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_3"), ClassStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_2"), ClassStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_1"), ClassStamps)
-            CheckEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_0"), ClassStamps)
-
-            ClassStamps.forEach { println(it) }
+            checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_0"), ClassStamps)
+            checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_1"), ClassStamps)
+            checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_2"), ClassStamps)
+            checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_3"), ClassStamps)
+            checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_4"), ClassStamps)
+            checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_5"), ClassStamps)
+            checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_6"), ClassStamps)
+            checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_7"), ClassStamps)
         } catch (e: Exception) {
             println("NETWORK FETCH FAILED")
             println(e.cause)
@@ -123,70 +135,263 @@ fun PollSwassData() =
         }
     }
 
-fun minimumViableTimeStamp(): Int {
-    TimeStamps.withIndex().forEach{
-        if(it.value != "OOB"){
-            return it.index;
+fun getCommonElements(arrayList: ArrayList<ArrayList<String>>): SnapshotStateList<String> {
+
+    val commonElements = SnapshotStateList<String>()
+    var isContain = true
+    val firstArray = arrayList[0]
+
+    val indexArray = ArrayList<IndexArray>()
+
+    // for loop for firstArray
+    for (e in firstArray) {
+
+        var elementIndex: Int
+        var arrayIndex: Int
+        for (i in 1 until arrayList.size) {
+            if (!arrayList[i].contains(e)) {
+                isContain = false
+                break
+            } else {
+                elementIndex = arrayList[i].indexOf(e)
+                arrayIndex = i
+
+                indexArray.add(IndexArray(arrayIndex, elementIndex))
+            }
+        }
+        if (isContain) {
+            commonElements.add(e)
+            for (i in 0 until indexArray.size) {
+                arrayList[indexArray[i].arrayIndex].removeAt(indexArray[i].elementIndex)
+            }
+            indexArray.clear()
+        } else {
+            indexArray.clear()
+            isContain = true
         }
     }
-    return 0;
+    return commonElements
 }
 
 @Composable
-fun ClassCard(name: String) {
-    Button(onClick = {}, shape = RoundedCornerShape(20.dp)) {
-        Text(
-            text = name,
-            fontFamily = OpenSansFamily,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 50.sp,
-            textAlign = TextAlign.Center
+fun StartScreen(modifier: Modifier = Modifier) {
+    val imageLoader =
+        ImageLoader.Builder(LocalContext.current)
+            .components {
+                if (SDK_INT >= 28) {
+                    add(ImageDecoderDecoder.Factory())
+                } else {
+                    add(GifDecoder.Factory())
+                }
+            }
+            .build()
+
+    var txt by remember { mutableStateOf("Fetching Data ...") }
+
+    var visible by remember { mutableStateOf(false) }
+
+    if (!visible) {
+        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Top) {
+            Column {
+                Spacer(modifier = Modifier.size(30.dp))
+                Text(
+                    text = txt,
+                    fontFamily = OpenSansFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 40.sp
+                )
+            }
+        }
+        Image(
+            painter = rememberAsyncImagePainter(R.drawable.red, imageLoader),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize()
         )
+
+        pollSwasData()
+        txt = "Data Fetched!"
+        visible = true
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@ExperimentalMaterial3Api
 @Composable
 fun TimeSelector(modifier: Modifier = Modifier) {
+    var toggle1 by remember { mutableStateOf(false) }
+    var toggle2 by remember { mutableStateOf(false) }
+    var toggle3 by remember { mutableStateOf(false) }
+    var toggle4 by remember { mutableStateOf(false) }
+    var toggle5 by remember { mutableStateOf(false) }
+    var toggle6 by remember { mutableStateOf(false) }
+    var toggle7 by remember { mutableStateOf(false) }
+    var toggle8 by remember { mutableStateOf(false) }
+
+    var classList = remember { mutableMapOf<String, ArrayList<String>>() }
+    var classFinal = remember { mutableStateListOf<String>() }
+
     Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Top) {
-        var sliderPosition by remember { mutableStateOf(minimumViableTimeStamp().toFloat()..7f) }
-        var min by remember { mutableStateOf(0) }
-        var max by remember { mutableStateOf(7) }
-
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(modifier = Modifier.padding(vertical = 10.dp))
-            Text(
-                "%s - %s".format(TimeStrings[min], TimeStrings[max]),
-                fontFamily = OpenSansFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 40.sp,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.padding(vertical = 5.dp))
-            val view = LocalView.current
-            RangeSlider(
-                value = sliderPosition,
-                steps = 6,
-                onValueChange = { values ->
-                    run {
-                        sliderPosition = values;
-                        min = (sliderPosition.start + 0.2).toInt()
-                        max = (sliderPosition.endInclusive + 0.2).toInt()
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    }
-                },
-
-                valueRange = (minimumViableTimeStamp().toFloat()..7f),
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
-            Spacer(modifier = Modifier.padding(vertical = 10.dp))
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(20) { ClassCard(name = "1B") }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(10.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FilterChip(
+                    selected = toggle1,
+                    onClick = {
+                        run {
+                            if (toggle1) {
+                                classList.remove("SECTOR_0")
+                                toggle1 = !toggle1
+                                if (classFinal.isNotEmpty()) {
+                                    classFinal = getCommonElements(ArrayList(classList.values))
+                                }
+                            } else {
+                                classList["SECTOR_0"] = ClassStamps[0]
+                                toggle1 = !toggle1
+                                if (classFinal.isNotEmpty()) {
+                                    classFinal = getCommonElements(ArrayList(classList.values))
+                                } else {
+                                    ClassStamps[0].forEach {
+                                        classFinal.add(it)
+                                        println(it)
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    label = { Text(text = TimeStrings[0]) }
+                )
+                FilterChip(
+                    selected = toggle2,
+                    onClick = {
+                        run {
+                            if (toggle2) {
+                                classList.remove("SECTOR_1")
+                                toggle2 = !toggle2
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            } else {
+                                classList["SECTOR_1"] = ClassStamps[1]
+                                toggle2 = !toggle2
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            }
+                        }
+                    },
+                    label = { Text(text = TimeStrings[1]) }
+                )
+                FilterChip(
+                    selected = toggle3,
+                    onClick = {
+                        run {
+                            if (toggle3) {
+                                classList.remove("SECTOR_3")
+                                toggle3 = !toggle3
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            } else {
+                                classList["SECTOR_3"] = ClassStamps[2]
+                                toggle3 = !toggle3
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            }
+                        }
+                    },
+                    label = { Text(text = TimeStrings[2]) }
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FilterChip(
+                    selected = toggle4,
+                    onClick = {
+                        run {
+                            if (toggle4) {
+                                classList.remove("SECTOR_4")
+                                toggle4 = !toggle4
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            } else {
+                                classList["SECTOR_4"] = ClassStamps[3]
+                                toggle4 = !toggle4
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            }
+                        }
+                    },
+                    label = { Text(text = TimeStrings[3]) }
+                )
+                FilterChip(
+                    selected = toggle5,
+                    onClick = {
+                        run {
+                            if (toggle5) {
+                                classList.remove("SECTOR_5")
+                                toggle5 = !toggle5
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            } else {
+                                classList["SECTOR_5"] = ClassStamps[4]
+                                toggle5 = !toggle5
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            }
+                        }
+                    },
+                    label = { Text(text = TimeStrings[4]) }
+                )
+                FilterChip(
+                    selected = toggle6,
+                    onClick = {
+                        run {
+                            if (toggle6) {
+                                classList.remove("SECTOR_6")
+                                toggle6 = !toggle6
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            } else {
+                                classList["SECTOR_6"] = ClassStamps[5]
+                                toggle6 = !toggle6
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            }
+                        }
+                    },
+                    label = { Text(text = TimeStrings[5]) }
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FilterChip(
+                    selected = toggle7,
+                    onClick = {
+                        run {
+                            if (toggle7) {
+                                classList.remove("SECTOR_7")
+                                toggle7 = !toggle7
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            } else {
+                                classList["SECTOR_7"] = ClassStamps[6]
+                                toggle7 = !toggle7
+                                classFinal = getCommonElements(ArrayList(classList.values))
+                            }
+                        }
+                    },
+                    label = { Text(text = TimeStrings[6]) }
+                )
+                FilterChip(
+                    selected = toggle8,
+                    onClick = {
+                        run {
+                            if (toggle8) {
+                                classList.remove("SECTOR_8")
+                                toggle8 = !toggle8
+                                if (classList.isNotEmpty()) {
+                                    classFinal = getCommonElements(ArrayList(classList.values))
+                                }
+                            } else {
+                                classList["SECTOR_8"] = ClassStamps[7]
+                                toggle8 = !toggle8
+                                if (classList.isNotEmpty()) {
+                                    classFinal = getCommonElements(ArrayList(classList.values))
+                                }
+                            }
+                        }
+                    },
+                    label = { Text(text = TimeStrings[7]) }
+                )
+            }
+            if (classFinal.isNotEmpty()) {
+                var a = classFinal.toList()
+                List(classFinal.size) { Text(text = a[it]) }
             }
         }
     }
