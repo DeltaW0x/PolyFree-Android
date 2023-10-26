@@ -1,19 +1,20 @@
 package com.delta.polyfree
 
+import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedFilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,36 +24,37 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import coil.ImageLoader
+import coil.compose.rememberAsyncImagePainter
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import com.delta.polyfree.ui.theme.PolyFreeTheme
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.runBlocking
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 
-internal class IndexArray(val arrayIndex: Int, val elementIndex: Int)
-
 class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pollSwasData();
+        pollSwasData()
         setContent {
             PolyFreeTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                   TimeSelector();
+                    TimeSelector()
                 }
             }
         }
@@ -65,6 +67,56 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
     }
+}
+
+internal class IndexArray(val arrayIndex: Int, val elementIndex: Int)
+
+var lastNonNull: Int = -1
+
+fun getCommonElements(arrayList: ArrayList<ArrayList<String>>): ArrayList<String> {
+
+    val commonElements = ArrayList<String>()
+    var isContain = true
+    val firstArray = arrayList[0]
+
+    val indexArray = ArrayList<IndexArray>()
+
+    // for loop for firstArray
+    for (e in firstArray) {
+
+        var elementIndex: Int
+        var arrayIndex: Int
+
+        // for loop for next ArrayList
+        for (i in 1 until arrayList.size) {
+
+            if (!arrayList[i].contains(e)) {
+                isContain = false
+                break
+            } else {
+                elementIndex = arrayList[i].indexOf(e)
+                arrayIndex = i
+
+                indexArray.add(IndexArray(arrayIndex, elementIndex))
+            }
+        }
+
+        if (isContain) {
+            commonElements.add(e)
+
+            // remove element
+            for (i in 0 until indexArray.size) {
+                arrayList[indexArray[i].arrayIndex].removeAt(indexArray[i].elementIndex)
+            }
+
+            indexArray.clear()
+        } else {
+            indexArray.clear()
+            isContain = true
+        }
+    }
+
+    return commonElements
 }
 
 val OpenSansFamily =
@@ -91,6 +143,7 @@ val ClassStamps = ArrayList<ArrayList<String>>()
 
 fun checkEmptyAndAdd(request: Elements, array: ArrayList<ArrayList<String>>) {
     if (request.isNullOrEmpty()) {
+        lastNonNull++
         var empty = ArrayList<String>()
         empty.add("OOB")
         array.add(empty)
@@ -100,7 +153,11 @@ fun checkEmptyAndAdd(request: Elements, array: ArrayList<ArrayList<String>>) {
 
         var temp = ArrayList<String>()
         var split = raw_data.split("\\s".toRegex())
-        split.forEach { temp.add(it) }
+        split.forEach {
+            if (!it.isNullOrEmpty()) {
+                temp.add(it)
+            }
+        }
         array.add(temp)
     }
 }
@@ -111,7 +168,6 @@ fun pollSwasData() =
             "https://www.swas.polito.it/dotnet/orari_lezione_pub/RicercaAuleLiberePerFasceOrarie.aspx"
         try {
             val doc = Jsoup.connect(website_url).get()
-
             checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_0"), ClassStamps)
             checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_1"), ClassStamps)
             checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_2"), ClassStamps)
@@ -120,6 +176,8 @@ fun pollSwasData() =
             checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_5"), ClassStamps)
             checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_6"), ClassStamps)
             checkEmptyAndAdd(doc.select("#Pagina_gv_AuleLibere_lbl_AuleLibere_7"), ClassStamps)
+
+            lastNonNull = 7 - lastNonNull
         } catch (e: Exception) {
             println("NETWORK FETCH FAILED")
             println(e.cause)
@@ -127,241 +185,127 @@ fun pollSwasData() =
         }
     }
 
-fun getCommonElements(arrayList: ArrayList<ArrayList<String>>): SnapshotStateList<String> {
-
-    val commonElements = SnapshotStateList<String>()
-    var isContain = true
-    val firstArray = arrayList[0]
-
-    val indexArray = ArrayList<IndexArray>()
-
-    // for loop for firstArray
-    for (e in firstArray) {
-
-        var elementIndex: Int
-        var arrayIndex: Int
-        for (i in 1 until arrayList.size) {
-            if (!arrayList[i].contains(e)) {
-                isContain = false
-                break
-            } else {
-                elementIndex = arrayList[i].indexOf(e)
-                arrayIndex = i
-
-                indexArray.add(IndexArray(arrayIndex, elementIndex))
-            }
-        }
-        if (isContain) {
-            commonElements.add(e)
-            for (i in 0 until indexArray.size) {
-                arrayList[indexArray[i].arrayIndex].removeAt(indexArray[i].elementIndex)
-            }
-            indexArray.clear()
-        } else {
-            indexArray.clear()
-            isContain = true
-        }
-    }
-    return commonElements
-}
-
-@Composable
-fun ClassListVis(name: String){
-    ElevatedCard(shape = RoundedCornerShape(12.dp), elevation = CardDefaults.cardElevation(
-            defaultElevation = 10.dp
-            )){
-        Box(contentAlignment = Alignment.Center){
-                Text(
-                    text = name,
-                    fontFamily = OpenSansFamily,
-                    fontWeight = FontWeight.SemiBold,
-                 fontSize = 50.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(16.dp)
-                );
-        }
-    }
-}
-
-
 @ExperimentalMaterial3Api
 @Composable
 fun TimeSelector(modifier: Modifier = Modifier) {
-    var toggle1 by remember { mutableStateOf(false) }
-    var toggle2 by remember { mutableStateOf(false) }
-    var toggle3 by remember { mutableStateOf(false) }
-    var toggle4 by remember { mutableStateOf(false) }
-    var toggle5 by remember { mutableStateOf(false) }
-    var toggle6 by remember { mutableStateOf(false) }
-    var toggle7 by remember { mutableStateOf(false) }
-    var toggle8 by remember { mutableStateOf(false) }
+    val toggles = remember {
+        mutableStateListOf<Boolean>(false, false, false, false, false, false, false, false)
+    }
+    var creditToggle by remember { mutableStateOf(false) }
 
-    var classList = remember { mutableMapOf<String, ArrayList<String>>() }
-    var classFinal = remember { mutableStateListOf<String>() }
-
+    var classHasmap = remember { mutableMapOf<String, ArrayList<String>>() }
+    var finalClassList = remember { mutableListOf<String>() }
+    val updateClassList = {run{
+        if(classHasmap.isNotEmpty()) {
+            finalClassList.clear();
+            finalClassList = classHasmap.values.toList().reduce { acc, it -> acc.apply { retainAll(it) } }
+            if(finalClassList.isNullOrEmpty()){
+                finalClassList = arrayListOf("No empty rooms available all throughout the selected range!");
+            }
+            println(finalClassList.toList());
+        }
+    }}
+    val updateHasMap = { index: Int ->
+        run {
+            val moduledIndex = ((index + lastNonNull) % 8)
+            if (toggles[index]) {
+                classHasmap.remove("SECTOR_$moduledIndex")
+                toggles[index] = !toggles[index]
+                updateClassList();
+                return@run
+            } else {
+                classHasmap["SECTOR_$moduledIndex"] = ClassStamps[moduledIndex]
+                toggles[index] = !toggles[index]
+                updateClassList();
+                return@run
+            }
+        }
+    }
     Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Top) {
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(10.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilterChip(
-                    selected = toggle1,
-                    onClick = {
-                        run {
-                            if (toggle1) {
-                                classList.remove("SECTOR_0")
-                                toggle1 = !toggle1
-                                if (classFinal.isNotEmpty()) {
-                                    classFinal = getCommonElements(ArrayList(classList.values))
-                                }
-                            } else {
-                                classList["SECTOR_0"] = ClassStamps[0]
-                                toggle1 = !toggle1
-                                if (classFinal.isNotEmpty()) {
-                                    classFinal = getCommonElements(ArrayList(classList.values))
-                                } else {
-                                    ClassStamps[0].forEach {
-                                        classFinal.add(it)
-                                        println(it)
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    label = { Text(text = TimeStrings[0]) }
+                ElevatedFilterChip(
+                    selected = toggles[0],
+                    onClick = { updateHasMap(0) },
+                    label = { Text(text = TimeStrings[0])}
                 )
-                FilterChip(
-                    selected = toggle2,
-                    onClick = {
-                        run {
-                            if (toggle2) {
-                                classList.remove("SECTOR_1")
-                                toggle2 = !toggle2
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            } else {
-                                classList["SECTOR_1"] = ClassStamps[1]
-                                toggle2 = !toggle2
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            }
-                        }
-                    },
+                ElevatedFilterChip(
+                    selected = toggles[1],
+                    onClick = { updateHasMap(1) },
                     label = { Text(text = TimeStrings[1]) }
                 )
-                FilterChip(
-                    selected = toggle3,
-                    onClick = {
-                        run {
-                            if (toggle3) {
-                                classList.remove("SECTOR_3")
-                                toggle3 = !toggle3
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            } else {
-                                classList["SECTOR_3"] = ClassStamps[2]
-                                toggle3 = !toggle3
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            }
-                        }
-                    },
+                ElevatedFilterChip(
+                    selected = toggles[2],
+                    onClick = { updateHasMap(2) },
                     label = { Text(text = TimeStrings[2]) }
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilterChip(
-                    selected = toggle4,
-                    onClick = {
-                        run {
-                            if (toggle4) {
-                                classList.remove("SECTOR_4")
-                                toggle4 = !toggle4
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            } else {
-                                classList["SECTOR_4"] = ClassStamps[3]
-                                toggle4 = !toggle4
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            }
-                        }
-                    },
+                ElevatedFilterChip(
+                    selected = toggles[3],
+                    onClick = { updateHasMap(3) },
                     label = { Text(text = TimeStrings[3]) }
                 )
-                FilterChip(
-                    selected = toggle5,
-                    onClick = {
-                        run {
-                            if (toggle5) {
-                                classList.remove("SECTOR_5")
-                                toggle5 = !toggle5
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            } else {
-                                classList["SECTOR_5"] = ClassStamps[4]
-                                toggle5 = !toggle5
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            }
-                        }
-                    },
+                ElevatedFilterChip(
+                    selected = toggles[4],
+                    onClick = { updateHasMap(4) },
                     label = { Text(text = TimeStrings[4]) }
                 )
-                FilterChip(
-                    selected = toggle6,
-                    onClick = {
-                        run {
-                            if (toggle6) {
-                                classList.remove("SECTOR_6")
-                                toggle6 = !toggle6
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            } else {
-                                classList["SECTOR_6"] = ClassStamps[5]
-                                toggle6 = !toggle6
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            }
-                        }
-                    },
+                ElevatedFilterChip(
+                    selected = toggles[5],
+                    onClick = { updateHasMap(5) },
                     label = { Text(text = TimeStrings[5]) }
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilterChip(
-                    selected = toggle7,
-                    onClick = {
-                        run {
-                            if (toggle7) {
-                                classList.remove("SECTOR_7")
-                                toggle7 = !toggle7
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            } else {
-                                classList["SECTOR_7"] = ClassStamps[6]
-                                toggle7 = !toggle7
-                                classFinal = getCommonElements(ArrayList(classList.values))
-                            }
-                        }
-                    },
+                ElevatedFilterChip(
+                    selected = toggles[6],
+                    onClick = { updateHasMap(6) },
                     label = { Text(text = TimeStrings[6]) }
                 )
-                FilterChip(
-                    selected = toggle8,
-                    onClick = {
-                        run {
-                            if (toggle8) {
-                                classList.remove("SECTOR_8")
-                                toggle8 = !toggle8
-                                if (classList.isNotEmpty()) {
-                                    classFinal = getCommonElements(ArrayList(classList.values))
-                                }
-                            } else {
-                                classList["SECTOR_8"] = ClassStamps[7]
-                                toggle8 = !toggle8
-                                if (classList.isNotEmpty()) {
-                                    classFinal = getCommonElements(ArrayList(classList.values))
-                                }
-                            }
-                        }
-                    },
+                ElevatedFilterChip(
+                    selected = toggles[7],
+                    onClick = { updateHasMap(7) },
                     label = { Text(text = TimeStrings[7]) }
                 )
             }
-            if (classFinal.isNotEmpty()) {
-                var a = classFinal.toList().filter { !it.isNullOrEmpty() }
-                List(a.size) { ClassListVis(name = a[it]) }
+        }
+    }
+    Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(10.dp)){
+        Button(onClick = { creditToggle = !creditToggle } )
+        {
+            Text(text = "Credits")
+        }
+    }
+    if(creditToggle){
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)){
+            val imageLoader = ImageLoader.Builder(LocalContext.current)
+                .components {
+                    if (SDK_INT >= 28) {
+                        add(ImageDecoderDecoder.Factory())
+                    } else {
+                        add(GifDecoder.Factory())
+                    }
+                }
+                .build()
+            Image(
+                painter = rememberAsyncImagePainter(R.drawable.red, imageLoader),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize()
+            )
+            Row (horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Top){
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(20.dp)
+                ){
+                    Text(text = "Original code by Simone Albano, UI port by DeltaWave0x\n \n" + "\"Negro sei gay\" - Riley Freeman,2005", textAlign = TextAlign.Center)
+                }
             }
         }
     }
