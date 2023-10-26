@@ -1,17 +1,17 @@
 package com.delta.polyfree
 
-import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -26,16 +26,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.ImageLoader
-import coil.compose.rememberAsyncImagePainter
-import coil.decode.GifDecoder
-import coil.decode.ImageDecoderDecoder
 import com.delta.polyfree.ui.theme.PolyFreeTheme
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.runBlocking
@@ -49,14 +45,14 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pollSwasData();
         setContent {
             PolyFreeTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    StartScreen()
-                    TimeSelector()
+                   TimeSelector();
                 }
             }
         }
@@ -64,12 +60,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
-        pollSwasData()
     }
 
     override fun onStop() {
         super.onStop()
-        pollSwasData()
     }
 }
 
@@ -106,9 +100,7 @@ fun checkEmptyAndAdd(request: Elements, array: ArrayList<ArrayList<String>>) {
 
         var temp = ArrayList<String>()
         var split = raw_data.split("\\s".toRegex())
-        split = split.filter { !it.isNullOrEmpty() }.toList()
         split.forEach { temp.add(it) }
-
         array.add(temp)
     }
 }
@@ -174,45 +166,23 @@ fun getCommonElements(arrayList: ArrayList<ArrayList<String>>): SnapshotStateLis
 }
 
 @Composable
-fun StartScreen(modifier: Modifier = Modifier) {
-    val imageLoader =
-        ImageLoader.Builder(LocalContext.current)
-            .components {
-                if (SDK_INT >= 28) {
-                    add(ImageDecoderDecoder.Factory())
-                } else {
-                    add(GifDecoder.Factory())
-                }
-            }
-            .build()
-
-    var txt by remember { mutableStateOf("Fetching Data ...") }
-
-    var visible by remember { mutableStateOf(false) }
-
-    if (!visible) {
-        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Top) {
-            Column {
-                Spacer(modifier = Modifier.size(30.dp))
+fun ClassListVis(name: String){
+    ElevatedCard(shape = RoundedCornerShape(12.dp), elevation = CardDefaults.cardElevation(
+            defaultElevation = 10.dp
+            )){
+        Box(contentAlignment = Alignment.Center){
                 Text(
-                    text = txt,
+                    text = name,
                     fontFamily = OpenSansFamily,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 40.sp
-                )
-            }
+                 fontSize = 50.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(16.dp)
+                );
         }
-        Image(
-            painter = rememberAsyncImagePainter(R.drawable.red, imageLoader),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        pollSwasData()
-        txt = "Data Fetched!"
-        visible = true
     }
 }
+
 
 @ExperimentalMaterial3Api
 @Composable
@@ -390,8 +360,8 @@ fun TimeSelector(modifier: Modifier = Modifier) {
                 )
             }
             if (classFinal.isNotEmpty()) {
-                var a = classFinal.toList()
-                List(classFinal.size) { Text(text = a[it]) }
+                var a = classFinal.toList().filter { !it.isNullOrEmpty() }
+                List(a.size) { ClassListVis(name = a[it]) }
             }
         }
     }
